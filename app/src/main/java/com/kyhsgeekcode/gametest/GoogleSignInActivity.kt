@@ -24,7 +24,9 @@ open class GoogleSignInActivity : ComponentActivity() {
             .requestScopes(Drive.SCOPE_APPFOLDER)
             .build()
 
-    private val mGoogleSignInClient = GoogleSignIn.getClient(baseContext, signInOptions)
+    private val mGoogleSignInClient by lazy {
+        GoogleSignIn.getClient(applicationContext, signInOptions)
+    }
 
     private val signInRequestLauncher =
         registerForActivityResult(ActivityResultContracts.StartActivityForResult()) { r ->

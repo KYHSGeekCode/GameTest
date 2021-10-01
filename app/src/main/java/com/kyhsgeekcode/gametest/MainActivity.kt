@@ -10,6 +10,7 @@ import androidx.compose.material.MaterialTheme
 import androidx.compose.material.Surface
 import androidx.compose.material.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.livedata.observeAsState
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.lifecycle.lifecycleScope
@@ -65,6 +66,7 @@ class MainActivity : GoogleSignInActivity() {
                         viewModel.saveSnapshot(latestSnapshotsClient() ?: return@launch)
                     }
                 }
+                DebugText(viewModel = viewModel)
             }
         }
     }
@@ -119,7 +121,7 @@ fun SignInButton(onclick: () -> Unit) {
 }
 
 @Composable
-fun SignOutButton(onclick: () -> Unit){
+fun SignOutButton(onclick: () -> Unit) {
     Button(onClick = {
         onclick()
     }) {
@@ -143,6 +145,12 @@ fun LoadButton(onclick: () -> Unit) {
     }) {
         Text("Save")
     }
+}
+
+@Composable
+fun DebugText(viewModel: MainViewModel) {
+    val t = viewModel.debugMsg.observeAsState()
+    Text(t.value ?: "")
 }
 
 @Preview(showBackground = true)

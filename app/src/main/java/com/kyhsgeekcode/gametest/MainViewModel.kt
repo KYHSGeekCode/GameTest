@@ -79,6 +79,9 @@ class MainViewModel : ViewModel() {
     private val _currentGameData: MutableLiveData<GameData> = MutableLiveData(null)
     val currentGameData: LiveData<GameData> = _currentGameData
 
+    val _debugMsg = MutableLiveData<String>()
+    val debugMsg: LiveData<String> = _debugMsg
+
     suspend fun saveSnapshot(snapshotsClient: SnapshotsClient) {
         val deferred = CompletableDeferred(Unit)
         currentGameData.value?.run {
