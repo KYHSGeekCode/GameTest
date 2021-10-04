@@ -143,7 +143,7 @@ fun LoadButton(onclick: () -> Unit) {
     Button(onClick = {
         onclick()
     }) {
-        Text("Save")
+        Text("Load")
     }
 }
 
