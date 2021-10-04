@@ -22,6 +22,7 @@ open class GoogleSignInActivity : ComponentActivity() {
     private val signInOptions: GoogleSignInOptions =
         GoogleSignInOptions.Builder(GoogleSignInOptions.DEFAULT_GAMES_SIGN_IN) // Add the APPFOLDER scope for Snapshot support.
             .requestScopes(Drive.SCOPE_APPFOLDER)
+            .requestProfile()
             .build()
 
     private val mGoogleSignInClient by lazy {

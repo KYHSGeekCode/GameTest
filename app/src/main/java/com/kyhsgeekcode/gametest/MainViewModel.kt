@@ -6,6 +6,7 @@ import androidx.lifecycle.LiveData
 import androidx.lifecycle.MutableLiveData
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.google.android.gms.auth.api.signin.GoogleSignInAccount
 import com.google.android.gms.games.SnapshotsClient
 import com.google.android.gms.games.snapshot.Snapshot
 import com.google.android.gms.games.snapshot.SnapshotMetadata
@@ -81,6 +82,17 @@ class MainViewModel : ViewModel() {
 
     val _debugMsg = MutableLiveData<String>()
     val debugMsg: LiveData<String> = _debugMsg
+
+    private val _currentAccount: MutableLiveData<GoogleSignInAccount?> = MutableLiveData()
+    val currentAccount = _currentAccount as LiveData<GoogleSignInAccount?>
+
+    fun onLogin(account: GoogleSignInAccount) {
+        _currentAccount.value = account
+    }
+
+    fun onLogout() {
+        _currentAccount.value = null
+    }
 
     suspend fun saveSnapshot(snapshotsClient: SnapshotsClient) {
         val deferred = CompletableDeferred(Unit)

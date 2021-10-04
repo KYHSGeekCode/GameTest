@@ -4,7 +4,7 @@ import android.os.Bundle
 import androidx.activity.compose.setContent
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.activity.viewModels
-import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.*
 import androidx.compose.material.Button
 import androidx.compose.material.MaterialTheme
 import androidx.compose.material.Surface
@@ -12,6 +12,7 @@ import androidx.compose.material.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.livedata.observeAsState
 import androidx.compose.ui.Alignment
+import androidx.compose.ui.Modifier
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.lifecycle.lifecycleScope
 import com.google.android.gms.auth.api.signin.GoogleSignIn
@@ -47,16 +48,26 @@ class MainActivity : GoogleSignInActivity() {
 
     @Composable
     fun MainScreen(viewModel: MainViewModel) {
+        val accountName  = viewModel.currentAccount.observeAsState()
         Surface(color = MaterialTheme.colors.background) {
-            Column(horizontalAlignment = Alignment.CenterHorizontally) {
+            Column(
+                horizontalAlignment = Alignment.CenterHorizontally,
+                modifier = Modifier.fillMaxSize(),
+                verticalArrangement = Arrangement.SpaceEvenly
+            ) {
+                Text(text = "Game")
+                Text(text = "Account: ${accountName.value?.displayName}")
                 SignInButton {
                     lifecycleScope.launch {
-                        signInSilently()
+                        signInSilently()?.run {
+                            viewModel.onLogin(this)
+                        }
                     }
                 }
                 SignOutButton {
                     lifecycleScope.launch {
                         signOut()
+                        viewModel.onLogout()
                     }
                 }
                 LoadButton {
@@ -108,6 +119,22 @@ class MainActivity : GoogleSignInActivity() {
             return null
         }
         return Games.getSnapshotsClient(this, lastAccount)
+    }
+
+    fun openSavedGameDataByName(snapshotsClient: SnapshotsClient, name: String) {
+        snapshotsClient.open(
+            name,
+            true,
+            SnapshotsClient.RESOLUTION_POLICY_MOST_RECENTLY_MODIFIED
+        ).addOnFailureListener { e ->
+            Timber.e("Error while opening snapshot: ", e)
+        }.addOnCompleteListener { doc ->
+            if (doc.result.isConflict) {
+                // do something
+            }
+            val snapshot = doc.result.data
+            viewModel.loadGame(snapshot.metadata, snapshotsClient)
+        }
     }
 
     fun downloadSavedGameData(snapshotsClient: SnapshotsClient, name: String) {
