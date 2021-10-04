@@ -48,7 +48,7 @@ class MainActivity : GoogleSignInActivity() {
 
     @Composable
     fun MainScreen(viewModel: MainViewModel) {
-        val accountName  = viewModel.currentAccount.observeAsState()
+        val accountName = viewModel.currentAccount.observeAsState()
         Surface(color = MaterialTheme.colors.background) {
             Column(
                 horizontalAlignment = Alignment.CenterHorizontally,
@@ -59,13 +59,20 @@ class MainActivity : GoogleSignInActivity() {
                 Text(text = "Account: ${accountName.value?.displayName}")
                 SignInButton {
                     lifecycleScope.launch {
-                        signInSilently()?.run {
+                        signInExplicitly()?.run {
                             viewModel.onLogin(this)
                         }
                     }
                 }
                 SignOutButton {
                     lifecycleScope.launch {
+                        signOut()
+                        viewModel.onLogout()
+                    }
+                }
+                RevokeButton {
+                    lifecycleScope.launch {
+                        revokeAccess()
                         signOut()
                         viewModel.onLogout()
                     }
@@ -186,6 +193,15 @@ fun SignOutButton(onclick: () -> Unit) {
         onclick()
     }) {
         Text("Sign out")
+    }
+}
+
+@Composable
+fun RevokeButton(onclick: () -> Unit) {
+    Button(onClick = {
+        onclick()
+    }) {
+        Text("Revoke")
     }
 }
 

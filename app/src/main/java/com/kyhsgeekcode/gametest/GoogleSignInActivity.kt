@@ -13,6 +13,7 @@ import com.google.android.gms.drive.Drive
 import kotlinx.coroutines.CompletableDeferred
 import timber.log.Timber
 
+
 // sign in implicitly: Wait until finish
 // sign in explicitly: Wait until finish
 // sign out explicitly: Wait until finish.
@@ -28,6 +29,7 @@ open class GoogleSignInActivity : ComponentActivity() {
     private val mGoogleSignInClient by lazy {
         GoogleSignIn.getClient(applicationContext, signInOptions)
     }
+
 
     private val signInRequestLauncher =
         registerForActivityResult(ActivityResultContracts.StartActivityForResult()) { r ->
@@ -55,10 +57,17 @@ open class GoogleSignInActivity : ComponentActivity() {
             }
         }
 
-    fun signInExplicitly() {
+    suspend fun signInExplicitly(): GoogleSignInAccount? {
         val intent = mGoogleSignInClient.signInIntent
+
         signInRequestLauncher.launch(intent)
         Timber.i("Explicitly signing in launched")
+        return signInDeferred.await()
+    }
+
+
+    suspend fun signInSilentlyOrExplicitly(): GoogleSignInAccount? {
+        return signInSilently() ?: signInExplicitly()
     }
 
     suspend fun signInSilently(): GoogleSignInAccount? {
@@ -78,7 +87,7 @@ open class GoogleSignInActivity : ComponentActivity() {
                 ) { task ->
                     if (task.isSuccessful) {
                         // The signed in account is stored in the task's result.
-                        Timber.i("Success signed in")
+                        Timber.i("Success signed in default")
                         val signedInAccount = task.result
                         signInDeferred.complete(signedInAccount)
                     } else {
@@ -87,9 +96,10 @@ open class GoogleSignInActivity : ComponentActivity() {
                         // and [Performing Interactive Sign-in](http://developers.google.com/games/services/android/signin#performing_interactive_sign-in) for details on how to implement
                         // Interactive Sign-in.
                         Timber.i("Explicitly signing in")
-                        signInExplicitly()
+                        signInDeferred.complete(null)
                     }
                 }
+
             return signInDeferred.await()
         }
     }
@@ -110,11 +120,21 @@ open class GoogleSignInActivity : ComponentActivity() {
     suspend fun signOut() {
         val d = CompletableDeferred(Unit)
         mGoogleSignInClient.signOut().addOnCompleteListener {
-
             d.complete(Unit)
         }.addOnFailureListener {
             d.cancel()
         }
+        d.await()
+    }
+
+    suspend fun revokeAccess() {
+        val d = CompletableDeferred(Unit)
+        mGoogleSignInClient.revokeAccess()
+            .addOnCompleteListener(this) {
+                d.complete(Unit)
+            }.addOnFailureListener {
+                d.cancel()
+            }
         d.await()
     }
 }
