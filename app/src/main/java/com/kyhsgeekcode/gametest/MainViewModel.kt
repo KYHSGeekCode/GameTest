@@ -3,13 +3,12 @@ package com.kyhsgeekcode.gametest
 import android.graphics.Bitmap
 import androidx.lifecycle.LiveData
 import androidx.lifecycle.MutableLiveData
+import androidx.lifecycle.Transformations
 import androidx.lifecycle.ViewModel
 import com.google.android.gms.auth.api.signin.GoogleSignInAccount
 import com.google.android.gms.games.SnapshotsClient
 import com.google.android.gms.games.snapshot.Snapshot
-import com.google.android.gms.games.snapshot.SnapshotMetadata
 import com.google.android.gms.games.snapshot.SnapshotMetadataChange
-import com.google.android.gms.tasks.Task
 import kotlinx.coroutines.CompletableDeferred
 import timber.log.Timber
 
@@ -85,6 +84,10 @@ class MainViewModel : ViewModel() {
     private val _gameData =
         MutableLiveData<GameDataResult<Pair<Snapshot, GameData>>>(GameDataResult.NotLoaded)
     val gameData: LiveData<GameDataResult<Pair<Snapshot, GameData>>> = _gameData
+    val realGameData = Transformations.map(gameData) {
+        Timber.i("Map called, it = $it")
+        (it as? GameDataResult.Success)?.data
+    }
 
     val _debugMsg = MutableLiveData<String>()
     val debugMsg: LiveData<String> = _debugMsg
@@ -116,21 +119,26 @@ class MainViewModel : ViewModel() {
 //        }
 //    }
 
-    private fun writeSnapshot(
+    private suspend fun writeSnapshot(
         snapshotsClient: SnapshotsClient,
         snapshot: Snapshot,
-        data: ByteArray, coverImage: Bitmap, desc: String
-    ): Task<SnapshotMetadata?>? {
+        data: ByteArray, coverImage: Bitmap?, desc: String
+    ) {
         // Set the data payload for the snapshot
         snapshot.snapshotContents.writeBytes(data)
 
         // Create the change operation
         val metadataChange = SnapshotMetadataChange.Builder()
-            .setCoverImage(coverImage)
+//            .setCoverImage(coverImage)
             .setDescription(desc)
             .build()
         // Commit the operation
-        return snapshotsClient.commitAndClose(snapshot, metadataChange)
+        val deferred = CompletableDeferred(Unit)
+        snapshotsClient.commitAndClose(snapshot, metadataChange).addOnCompleteListener {
+            deferred.complete(Unit)
+        }
+        Timber.d("waiting writing")
+        deferred.await()
     }
 
     suspend fun loadDefaultGame(lastsnapshot: SnapshotsClient): Boolean {
@@ -143,7 +151,10 @@ class MainViewModel : ViewModel() {
         return true
     }
 
-    private fun createDefaultGameData() = GameData(0)
+    private fun createDefaultGameData(): GameData {
+        Timber.w("Creating default data")
+        return GameData(0)
+    }
 
     private suspend fun loadSnapshot(
         uniqueName: String,
@@ -163,7 +174,7 @@ class MainViewModel : ViewModel() {
                 val data = try {
                     snapshot?.run { fromSnapshot(this) }
                 } catch (e: Exception) {
-                    Timber.e("Failed to decode snapshot", e)
+                    Timber.e(e, "Failed to decode snapshot")
                     null
                 }
                 deferred.complete(
@@ -187,6 +198,14 @@ class MainViewModel : ViewModel() {
             gd.level++
             true
         }
+    }
+
+    suspend fun saveSnapshot(snapshotsClient: SnapshotsClient) {
+        val dataPair = realGameData.value ?: run {
+            Timber.w("Datapair is null")
+            return@saveSnapshot
+        }
+        writeSnapshot(snapshotsClient, dataPair.first, dataPair.second.toByteArray(), null, "def")
     }
 }
 

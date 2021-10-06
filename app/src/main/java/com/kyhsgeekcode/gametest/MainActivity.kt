@@ -1,9 +1,11 @@
 package com.kyhsgeekcode.gametest
 
+import android.content.Context
 import android.os.Bundle
 import android.widget.Toast
 import androidx.activity.compose.setContent
 import androidx.activity.viewModels
+import androidx.annotation.MainThread
 import androidx.compose.foundation.layout.*
 import androidx.compose.material.Button
 import androidx.compose.material.MaterialTheme
@@ -19,7 +21,9 @@ import com.google.android.gms.auth.api.signin.GoogleSignIn
 import com.google.android.gms.games.Games
 import com.google.android.gms.games.SnapshotsClient
 import com.kyhsgeekcode.gametest.ui.theme.GameTestTheme
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import timber.log.Timber
 import timber.log.Timber.*
 import java.util.*
@@ -46,8 +50,8 @@ class MainActivity : GoogleSignInActivity() {
     @Composable
     fun MainScreen(viewModel: MainViewModel) {
         val accountName = viewModel.currentAccount.observeAsState()
-        val level = viewModel.gameData.observeAsState()
-        val ilv = (level.value as? GameDataResult.Success)?.data?.second?.level
+        val level = viewModel.realGameData.observeAsState()
+        val ilv = level.value?.second?.level
         Surface(color = MaterialTheme.colors.background) {
             Column(
                 horizontalAlignment = Alignment.CenterHorizontally,
@@ -95,22 +99,17 @@ class MainActivity : GoogleSignInActivity() {
                             .show()
                         lifecycleScope.launch {
                             viewModel.loadDefaultGame(lastsnapshot)
-//                            withContext(Dispatchers.Main) {
-//                                Toast.makeText(
-//                                    this@MainActivity,
-//                                    if (success) {
-//                                        "Failed to load data. What happened?"
-//                                    } else {
-//                                        "Success"
-//                                    }, Toast.LENGTH_SHORT
-//                                ).show()
-//                            }
                         }
                     }
                 }
                 SaveButton {
-                    lifecycleScope.launch {
-//                        viewModel.saveSnapshot(latestSnapshotsClient() ?: return@launch)
+                    checkLogin()?.run {
+                        lifecycleScope.launch {
+                            viewModel.saveSnapshot(this@run)
+                            withContext(Dispatchers.Main) {
+                                showToast("Saved")
+                            }
+                        }
                     }
                 }
                 DebugText(viewModel = viewModel)
@@ -118,35 +117,15 @@ class MainActivity : GoogleSignInActivity() {
         }
     }
 
-//    private val getSavedGameRequestLauncher =
-//        registerForActivityResult(ActivityResultContracts.StartActivityForResult()) { r ->
-//            if (intent != null) {
-//                val latestSnapshotsClient =
-//                    latestSnapshotsClient() ?: return@registerForActivityResult
-//                if (intent.hasExtra(SnapshotsClient.EXTRA_SNAPSHOT_METADATA)) {
-//                    // Load a snapshot.
-//                    val snapshotMetadata: SnapshotMetadata? =
-//                        intent.getParcelableExtra(SnapshotsClient.EXTRA_SNAPSHOT_METADATA)
-//                    snapshotMetadata?.run {
-//                        viewModel.loadGame(this, latestSnapshotsClient)
-//                    }
-//                } else if (intent.hasExtra(SnapshotsClient.EXTRA_SNAPSHOT_NEW)) {
-//                    // Create a new snapshot named with a unique string
-//
-//                    val unique: String = BigInteger(281, Random()).toString(13)
-//                    viewModel.createGame("snapshotTemp-$unique")
-//                }
-//            }
-//        }
-
-//    private fun showSavedGamesUI() {
-//        val snapshotsClient = latestSnapshotsClient() ?: return
-//        val maxNumberOfSavedGamesToShow = 3
-//        val intentTask = snapshotsClient.getSelectSnapshotIntent(
-//            "See My Saves", true, true, maxNumberOfSavedGamesToShow
-//        )
-//        intentTask.addOnSuccessListener { intent -> getSavedGameRequestLauncher.launch(intent) }
-//    }
+    private fun checkLogin(): SnapshotsClient? {
+        val latestSnapshotsClient = latestSnapshotsClient()
+        if (latestSnapshotsClient == null) {
+            Toast.makeText(this@MainActivity, "Please login first", Toast.LENGTH_SHORT)
+                .show()
+            return null
+        }
+        return latestSnapshotsClient
+    }
 
     private fun latestSnapshotsClient(): SnapshotsClient? {
         val lastAccount = GoogleSignIn.getLastSignedInAccount(this) ?: run {
@@ -155,22 +134,6 @@ class MainActivity : GoogleSignInActivity() {
         }
         return Games.getSnapshotsClient(this, lastAccount)
     }
-
-//    fun openSavedGameDataByName(snapshotsClient: SnapshotsClient, name: String) {
-//        snapshotsClient.open(
-//            name,
-//            true,
-//            SnapshotsClient.RESOLUTION_POLICY_MOST_RECENTLY_MODIFIED
-//        ).addOnFailureListener { e ->
-//            Timber.e("Error while opening snapshot: ", e)
-//        }.addOnCompleteListener { doc ->
-//            if (doc.result.isConflict) {
-//                // do something
-//            }
-//            val snapshot = doc.result.data
-//            viewModel.loadGame(snapshot.metadata, snapshotsClient)
-//        }
-//    }
 }
 
 @Composable
@@ -246,4 +209,9 @@ fun DefaultPreview() {
             }
         }
     }
+}
+
+@MainThread
+fun Context.showToast(content: String) {
+    Toast.makeText(this, content, Toast.LENGTH_SHORT).show()
 }
