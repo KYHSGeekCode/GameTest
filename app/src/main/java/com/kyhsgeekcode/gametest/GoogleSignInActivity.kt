@@ -1,7 +1,6 @@
 package com.kyhsgeekcode.gametest
 
 import android.app.Activity
-import android.content.Intent
 import androidx.activity.ComponentActivity
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.appcompat.app.AlertDialog
@@ -9,7 +8,8 @@ import com.google.android.gms.auth.api.Auth
 import com.google.android.gms.auth.api.signin.GoogleSignIn
 import com.google.android.gms.auth.api.signin.GoogleSignInAccount
 import com.google.android.gms.auth.api.signin.GoogleSignInOptions
-import com.google.android.gms.drive.Drive
+import com.google.android.gms.common.Scopes
+import com.google.android.gms.common.api.Scope
 import kotlinx.coroutines.CompletableDeferred
 import timber.log.Timber
 
@@ -22,7 +22,7 @@ open class GoogleSignInActivity : ComponentActivity() {
     private val signInDeferred = CompletableDeferred<GoogleSignInAccount?>()
     private val signInOptions: GoogleSignInOptions =
         GoogleSignInOptions.Builder(GoogleSignInOptions.DEFAULT_GAMES_SIGN_IN) // Add the APPFOLDER scope for Snapshot support.
-            .requestScopes(Drive.SCOPE_APPFOLDER)
+            .requestScopes(Scope(Scopes.DRIVE_APPFOLDER))
             .requestProfile()
             .build()
 
@@ -30,15 +30,14 @@ open class GoogleSignInActivity : ComponentActivity() {
         GoogleSignIn.getClient(applicationContext, signInOptions)
     }
 
-
     private val signInRequestLauncher =
         registerForActivityResult(ActivityResultContracts.StartActivityForResult()) { r ->
             Timber.d("Result:$r")
             if (r.resultCode == Activity.RESULT_OK) {
                 // There are no request codes
-                val data: Intent? = r.data
+                val data = r.data ?: return@registerForActivityResult
                 val result = Auth.GoogleSignInApi.getSignInResultFromIntent(data)
-                if (result.isSuccess) {
+                if (result!!.isSuccess) {
                     // The signed in account is stored in the result.
                     val signedInAccount = result.signInAccount
                     signInDeferred.complete(signedInAccount)

@@ -21,7 +21,10 @@ sealed class GameDataResult<out T> {
 }
 
 class MainViewModel : ViewModel() {
-    var gameData by mutableStateOf<GameDataResult<Pair<Snapshot, GameData>>>(GameDataResult.NotLoaded)
+    var gameData by mutableStateOf(createDefaultGameData())
+        private set
+
+    var snapshot by mutableStateOf<GameDataResult<Snapshot>>(GameDataResult.NotLoaded)
         private set
 
     var debugMsg by mutableStateOf("")
@@ -60,12 +63,11 @@ class MainViewModel : ViewModel() {
     }
 
     suspend fun loadDefaultGame(lastsnapshot: SnapshotsClient): Boolean {
-        val loaded = loadSnapshot("default2", lastsnapshot) ?: run {
-            gameData = GameDataResult.Error(NullPointerException())
+        val loaded = loadSnapshot("default", lastsnapshot) ?: run {
+            snapshot = GameDataResult.Error(NullPointerException())
             return@loadDefaultGame false
         }
-        val gd = loaded.second ?: createDefaultGameData()
-        gameData = GameDataResult.Success(Pair(loaded.first, gd))
+        gameData = loaded.second ?: createDefaultGameData()
         return true
     }
 
@@ -79,16 +81,18 @@ class MainViewModel : ViewModel() {
         snapshotsClient: SnapshotsClient
     ): Pair<Snapshot, GameData?>? {
         val deferred = CompletableDeferred<Pair<Snapshot, GameData?>?>()
-        gameData = GameDataResult.InProgress
+        snapshot = GameDataResult.InProgress
         // In the case of a conflict, the most recently modified version of this snapshot will be used.
         val conflictResolutionPolicy = SnapshotsClient.RESOLUTION_POLICY_MOST_RECENTLY_MODIFIED
 
         // Open the saved game using its name.
         snapshotsClient.open(uniqueName, true, conflictResolutionPolicy)
-            .addOnFailureListener { e -> Timber.e("Error while opening Snapshot.", e) }
-            .addOnCompleteListener {
+            .addOnFailureListener { e ->
+                Timber.e(e, "Error while opening Snapshot.")
+            }
+            .addOnSuccessListener {
                 // Opening the snapshot was a success and any conflicts have been resolved.
-                val snapshot = it.result.data
+                val snapshot = it.data
                 val data = try {
                     snapshot?.run { fromSnapshot(this) }
                 } catch (e: Exception) {
@@ -111,27 +115,12 @@ class MainViewModel : ViewModel() {
     }
 
     fun levelUp(): Boolean {
-        return when (val gameData = gameData) {
-            is GameDataResult.Success -> {
-                this.gameData = GameDataResult.Success(
-                    gameData.data.copy(
-                        second = gameData.data.second.copy(level = gameData.data.second.level)
-                    )
-                )
-                true
-            }
-            else -> {
-                Timber.d("It is not success: $gameData")
-                false
-            }
-        }
+        gameData = gameData.copy(level = gameData.level + 1)
+        return true
     }
 
     suspend fun saveSnapshot(snapshotsClient: SnapshotsClient) {
-        val dataPair = (gameData as? GameDataResult.Success)?.data ?: run {
-            Timber.d("Cannot save snapshot as data is null")
-            return@saveSnapshot
-        }
-        writeSnapshot(snapshotsClient, dataPair.first, dataPair.second.toByteArray(), null, "def")
+        val snapshot = (snapshot as? GameDataResult.Success)?.data ?: return
+        writeSnapshot(snapshotsClient, snapshot, gameData.toByteArray(), null, "def")
     }
 }

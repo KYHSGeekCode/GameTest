@@ -7,7 +7,7 @@ import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.Json
 
 @Serializable
-data class GameData(var level: Int = 0) {
+data class GameData(val level: Int = 0) {
     fun toByteArray(): ByteArray {
         return Json.encodeToString(this).toByteArray(Charsets.UTF_8)
     }

@@ -50,15 +50,14 @@ class MainActivity : GoogleSignInActivity() {
     @Composable
     fun MainScreen(viewModel: MainViewModel) {
         val accountName = viewModel.currentAccount
-        val level = (viewModel.gameData as? GameDataResult.Success)?.data
-        val ilv = level?.second?.level
+        val level = viewModel.gameData.level
         Surface(color = MaterialTheme.colors.background) {
             Column(
                 horizontalAlignment = Alignment.CenterHorizontally,
                 modifier = Modifier.fillMaxSize(),
                 verticalArrangement = Arrangement.SpaceEvenly
             ) {
-                Text(text = "Game: $ilv")
+                Text(text = "Game: $level")
                 Text(text = "Account: ${accountName?.displayName}")
                 PlayGameButton {
                     val updated = viewModel.levelUp()
@@ -86,8 +85,8 @@ class MainActivity : GoogleSignInActivity() {
                 }
                 LoadButton {
 //                    showSavedGamesUI()
-                    val lastsnapshot = latestSnapshotsClient()
-                    if (lastsnapshot == null) {
+                    val lastsnapshotClient = latestSnapshotsClient()
+                    if (lastsnapshotClient == null) {
                         Toast.makeText(this@MainActivity, "Please login first.", Toast.LENGTH_SHORT)
                             .show()
                     } else {
@@ -98,7 +97,7 @@ class MainActivity : GoogleSignInActivity() {
                         )
                             .show()
                         lifecycleScope.launch {
-                            val re = viewModel.loadDefaultGame(lastsnapshot)
+                            val re = viewModel.loadDefaultGame(lastsnapshotClient)
                             Timber.d("loadDefault: $re")
                         }
                     }
