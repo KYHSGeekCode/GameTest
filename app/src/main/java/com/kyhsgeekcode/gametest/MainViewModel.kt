@@ -1,9 +1,9 @@
 package com.kyhsgeekcode.gametest
 
 import android.graphics.Bitmap
-import androidx.lifecycle.LiveData
-import androidx.lifecycle.MutableLiveData
-import androidx.lifecycle.Transformations
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.setValue
 import androidx.lifecycle.ViewModel
 import com.google.android.gms.auth.api.signin.GoogleSignInAccount
 import com.google.android.gms.games.SnapshotsClient
@@ -13,111 +13,29 @@ import kotlinx.coroutines.CompletableDeferred
 import timber.log.Timber
 
 
-sealed class GameDataResult<out T : Any> {
-    data class Success<out T : Any>(val data: T) : GameDataResult<T>()
-    data class Error<out T : Any>(val exception: Exception) : GameDataResult<T>()
+sealed class GameDataResult<out T> {
+    data class Success<T>(val data: T) : GameDataResult<T>()
+    data class Error<T>(val exception: Exception) : GameDataResult<T>()
     object NotLoaded : GameDataResult<Nothing>()
     object InProgress : GameDataResult<Nothing>()
 }
 
-
-//class GameData {
-//
-//    constructor(
-//        scope: CoroutineScope,
-//        snapshotMetadata: SnapshotMetadata,
-//        snapshotsClient: SnapshotsClient
-//    ) {
-//        name = snapshotMetadata.uniqueName
-//        val deferred: CompletableDeferred<Pair<Snapshot?, ByteArray?>> = CompletableDeferred()
-//        loadSnapshot(name, snapshotsClient).addOnCsompleteListener {
-//            deferred.complete(it.result)
-//        }
-//        snapshot = scope.async {
-//            deferred.await().first
-//        }
-//        data = scope.async {
-//            deferred.await().second
-//        }
-//        coverImage = snapshotMetadata.coverImageUri
-//        desc = snapshotMetadata.description
-//    }
-//
-//    constructor(scope: CoroutineScope, uniqueName: String) {
-//        name = uniqueName
-//        coverImage = null
-//        snapshot = scope.async {
-//            null
-//        }
-//        desc = null
-//        data = scope.async {
-//            byteArrayOf()
-//        }
-//    }
-//
-//    val name: String
-//    val snapshot: Deferred<Snapshot?>
-//    val coverImage: Uri?
-//    val desc: String?
-//    val data: Deferred<ByteArray?>
-//
-//    fun serialize(): ByteArray {
-//        return byteArrayOf(0, 1, 2, 3)
-//    }
-//}
-
-
 class MainViewModel : ViewModel() {
-//    fun loadGame(snapshotMetadata: SnapshotMetadata, snapshotsClient: SnapshotsClient) {
-//        _currentGameData.value = GameData(viewModelScope, snapshotMetadata, snapshotsClient)
-//    }
-//
-//    fun createGame(uniqueName: String) {
-//        _currentGameData.value = GameData(viewModelScope, uniqueName)
-//    }
-//
-//    private val gameDataa = HashMap<String, GameData>()
+    var gameData by mutableStateOf<GameDataResult<Pair<Snapshot, GameData>>>(GameDataResult.NotLoaded)
+        private set
 
-//    private val _currentGameData: MutableLiveData<GameData> = MutableLiveData(null)
-//    val currentGameData: LiveData<GameData> = _currentGameData
+    var debugMsg by mutableStateOf("")
+        private set
 
-    private val _gameData =
-        MutableLiveData<GameDataResult<Pair<Snapshot, GameData>>>(GameDataResult.NotLoaded)
-    val gameData: LiveData<GameDataResult<Pair<Snapshot, GameData>>> = _gameData
-    val realGameData = Transformations.map(gameData) {
-        Timber.i("Map called, it = $it")
-        (it as? GameDataResult.Success)?.data
-    }
-
-    val _debugMsg = MutableLiveData<String>()
-    val debugMsg: LiveData<String> = _debugMsg
-
-    private val _currentAccount: MutableLiveData<GoogleSignInAccount?> = MutableLiveData()
-    val currentAccount = _currentAccount as LiveData<GoogleSignInAccount?>
+    var currentAccount by mutableStateOf<GoogleSignInAccount?>(null)
 
     fun onLogin(account: GoogleSignInAccount) {
-        _currentAccount.value = account
+        currentAccount = account
     }
 
     fun onLogout() {
-        _currentAccount.value = null
+        currentAccount = null
     }
-
-//    suspend fun saveSnapshot(snapshotsClient: SnapshotsClient) {
-//        val deferred = CompletableDeferred(Unit)
-//        currentGameData.value?.run {
-////            writeSnapshot(
-////                snapshotsClient,
-////                snapshot.await(),
-////                serialize(),
-////                coverImage,
-////                desc
-////            )?.addOnCompleteListener {
-////                deferred.complete(Unit)
-////            } ?: deferred.complete(Unit)
-//            deferred.await()
-//        }
-//    }
 
     private suspend fun writeSnapshot(
         snapshotsClient: SnapshotsClient,
@@ -142,12 +60,12 @@ class MainViewModel : ViewModel() {
     }
 
     suspend fun loadDefaultGame(lastsnapshot: SnapshotsClient): Boolean {
-        val loaded = loadSnapshot("default", lastsnapshot) ?: run {
-            _gameData.value = GameDataResult.Error(NullPointerException())
+        val loaded = loadSnapshot("default2", lastsnapshot) ?: run {
+            gameData = GameDataResult.Error(NullPointerException())
             return@loadDefaultGame false
         }
         val gd = loaded.second ?: createDefaultGameData()
-        _gameData.value = GameDataResult.Success(Pair(loaded.first, gd))
+        gameData = GameDataResult.Success(Pair(loaded.first, gd))
         return true
     }
 
@@ -161,7 +79,7 @@ class MainViewModel : ViewModel() {
         snapshotsClient: SnapshotsClient
     ): Pair<Snapshot, GameData?>? {
         val deferred = CompletableDeferred<Pair<Snapshot, GameData?>?>()
-        _gameData.value = GameDataResult.InProgress
+        gameData = GameDataResult.InProgress
         // In the case of a conflict, the most recently modified version of this snapshot will be used.
         val conflictResolutionPolicy = SnapshotsClient.RESOLUTION_POLICY_MOST_RECENTLY_MODIFIED
 
@@ -193,29 +111,27 @@ class MainViewModel : ViewModel() {
     }
 
     fun levelUp(): Boolean {
-        return _gameData.mutation {
-            val gd = (it.value as? GameDataResult.Success)?.data?.second ?: return@mutation false
-            gd.level++
-            true
+        return when (val gameData = gameData) {
+            is GameDataResult.Success -> {
+                this.gameData = GameDataResult.Success(
+                    gameData.data.copy(
+                        second = gameData.data.second.copy(level = gameData.data.second.level)
+                    )
+                )
+                true
+            }
+            else -> {
+                Timber.d("It is not success: $gameData")
+                false
+            }
         }
     }
 
     suspend fun saveSnapshot(snapshotsClient: SnapshotsClient) {
-        val dataPair = realGameData.value ?: run {
-            Timber.w("Datapair is null")
+        val dataPair = (gameData as? GameDataResult.Success)?.data ?: run {
+            Timber.d("Cannot save snapshot as data is null")
             return@saveSnapshot
         }
         writeSnapshot(snapshotsClient, dataPair.first, dataPair.second.toByteArray(), null, "def")
     }
 }
-
-fun <T> MutableLiveData<T>.mutation(actions: (MutableLiveData<T>) -> Boolean): Boolean {
-    val isUpdated = actions(this)
-    if (isUpdated) {
-        val d = this.value
-        this.value = null
-        this.value = d
-    }
-    return isUpdated
-}
-

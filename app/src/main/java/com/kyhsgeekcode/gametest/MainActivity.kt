@@ -6,13 +6,14 @@ import android.widget.Toast
 import androidx.activity.compose.setContent
 import androidx.activity.viewModels
 import androidx.annotation.MainThread
-import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.material.Button
 import androidx.compose.material.MaterialTheme
 import androidx.compose.material.Surface
 import androidx.compose.material.Text
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.livedata.observeAsState
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.tooling.preview.Preview
@@ -25,8 +26,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import timber.log.Timber
-import timber.log.Timber.*
-import java.util.*
+import timber.log.Timber.DebugTree
 
 
 class MainActivity : GoogleSignInActivity() {
@@ -49,9 +49,9 @@ class MainActivity : GoogleSignInActivity() {
 
     @Composable
     fun MainScreen(viewModel: MainViewModel) {
-        val accountName = viewModel.currentAccount.observeAsState()
-        val level = viewModel.realGameData.observeAsState()
-        val ilv = level.value?.second?.level
+        val accountName = viewModel.currentAccount
+        val level = (viewModel.gameData as? GameDataResult.Success)?.data
+        val ilv = level?.second?.level
         Surface(color = MaterialTheme.colors.background) {
             Column(
                 horizontalAlignment = Alignment.CenterHorizontally,
@@ -59,7 +59,7 @@ class MainActivity : GoogleSignInActivity() {
                 verticalArrangement = Arrangement.SpaceEvenly
             ) {
                 Text(text = "Game: $ilv")
-                Text(text = "Account: ${accountName.value?.displayName}")
+                Text(text = "Account: ${accountName?.displayName}")
                 PlayGameButton {
                     val updated = viewModel.levelUp()
                     Timber.d("Updated: $updated")
@@ -98,7 +98,8 @@ class MainActivity : GoogleSignInActivity() {
                         )
                             .show()
                         lifecycleScope.launch {
-                            viewModel.loadDefaultGame(lastsnapshot)
+                            val re = viewModel.loadDefaultGame(lastsnapshot)
+                            Timber.d("loadDefault: $re")
                         }
                     }
                 }
@@ -192,8 +193,8 @@ fun LoadButton(onclick: () -> Unit) {
 
 @Composable
 fun DebugText(viewModel: MainViewModel) {
-    val t = viewModel.debugMsg.observeAsState()
-    Text(t.value ?: "")
+    val t = viewModel.debugMsg
+    Text(t)
 }
 
 @Preview(showBackground = true)
