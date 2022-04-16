@@ -1,6 +1,7 @@
 package com.kyhsgeekcode.gametest
 
 import android.content.Context
+import android.content.Intent
 import android.os.Bundle
 import android.widget.Toast
 import androidx.activity.compose.setContent
@@ -21,18 +22,20 @@ import androidx.lifecycle.lifecycleScope
 import com.google.android.gms.auth.api.signin.GoogleSignIn
 import com.google.android.gms.games.Games
 import com.google.android.gms.games.SnapshotsClient
+import com.google.android.gms.games.snapshot.SnapshotMetadata
+import com.google.android.gms.tasks.OnSuccessListener
+import com.google.android.gms.tasks.Task
 import com.kyhsgeekcode.gametest.ui.theme.GameTestTheme
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import timber.log.Timber
 import timber.log.Timber.DebugTree
+import java.math.BigInteger
+import java.util.*
 
 
 class MainActivity : GoogleSignInActivity() {
-//    init {
-//        autoGoogleSignIn()
-//    }
 
     private val viewModel by viewModels<MainViewModel>()
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -96,7 +99,9 @@ class MainActivity : GoogleSignInActivity() {
                             Toast.LENGTH_SHORT
                         )
                             .show()
+//                        showSavedGamesUI()
                         lifecycleScope.launch {
+
                             val re = viewModel.loadDefaultGame(lastsnapshotClient)
                             Timber.d("loadDefault: $re")
                         }
@@ -133,6 +138,60 @@ class MainActivity : GoogleSignInActivity() {
             return null
         }
         return Games.getSnapshotsClient(this, lastAccount)
+    }
+
+    private val RC_SAVED_GAMES = 9009
+
+    private fun showSavedGamesUI() {
+        val snapshotsClient = Games.getSnapshotsClient(
+            this,
+            GoogleSignIn.getLastSignedInAccount(this)!!
+        )
+        val maxNumberOfSavedGamesToShow = 5
+        val intentTask: Task<Intent> = snapshotsClient.getSelectSnapshotIntent(
+            "See My Saves", true, true, maxNumberOfSavedGamesToShow
+        )
+        intentTask.addOnSuccessListener(OnSuccessListener<Intent?> { intent ->
+            startActivityForResult(
+                intent,
+                RC_SAVED_GAMES
+            )
+        })
+    }
+
+    private var mCurrentSaveName = "snapshotTemp"
+
+    /**
+     * This callback will be triggered after you call startActivityForResult from the
+     * showSavedGamesUI method.
+     */
+    override fun onActivityResult(
+        requestCode: Int, resultCode: Int,
+        intent: Intent?
+    ) {
+        super.onActivityResult(requestCode, resultCode, intent)
+        if (intent != null) {
+            if (intent.hasExtra(SnapshotsClient.EXTRA_SNAPSHOT_METADATA)) {
+                // Load a snapshot.
+                val snapshotMetadata: SnapshotMetadata =
+                    intent.getParcelableExtra(SnapshotsClient.EXTRA_SNAPSHOT_METADATA)!!
+                mCurrentSaveName = snapshotMetadata.uniqueName
+
+                // Load the game data from the Snapshot
+                // ...
+            } else if (intent.hasExtra(SnapshotsClient.EXTRA_SNAPSHOT_NEW)) {
+                // Create a new snapshot named with a unique string
+                val unique: String = BigInteger(281, Random()).toString(13)
+                mCurrentSaveName = "snapshotTemp-$unique"
+
+                // Create the new snapshot
+                // ...
+            }
+        }
+    }
+
+    fun isGooglePlayGamesInstalled(): Boolean {
+        return packageManager.getLaunchIntentForPackage("com.google.android.play.games") != null
     }
 }
 

@@ -6,6 +6,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import androidx.lifecycle.ViewModel
 import com.google.android.gms.auth.api.signin.GoogleSignInAccount
+import com.google.android.gms.common.api.ApiException
 import com.google.android.gms.games.SnapshotsClient
 import com.google.android.gms.games.snapshot.Snapshot
 import com.google.android.gms.games.snapshot.SnapshotMetadataChange
@@ -62,6 +63,8 @@ class MainViewModel : ViewModel() {
         deferred.await()
     }
 
+
+
     suspend fun loadDefaultGame(lastsnapshot: SnapshotsClient): Boolean {
         val loaded = loadSnapshot("default", lastsnapshot) ?: run {
             snapshot = GameDataResult.Error(NullPointerException())
@@ -89,6 +92,10 @@ class MainViewModel : ViewModel() {
         snapshotsClient.open(uniqueName, true, conflictResolutionPolicy)
             .addOnFailureListener { e ->
                 Timber.e(e, "Error while opening Snapshot.")
+                if (e is ApiException) {
+                    Timber.e("Status: ${e.status} statuscode: ${e.statusCode}, msg: ${e.statusMessage}")
+                    Timber.e("Canceled: ${e.status.isCanceled} statuscode: ${e.status.connectionResult}, msg: ${e.status.resolution}")
+                }
             }
             .addOnSuccessListener {
                 // Opening the snapshot was a success and any conflicts have been resolved.

@@ -10,6 +10,7 @@ import com.google.android.gms.auth.api.signin.GoogleSignInAccount
 import com.google.android.gms.auth.api.signin.GoogleSignInOptions
 import com.google.android.gms.common.Scopes
 import com.google.android.gms.common.api.Scope
+import com.google.android.gms.games.Games
 import kotlinx.coroutines.CompletableDeferred
 import timber.log.Timber
 
@@ -22,7 +23,11 @@ open class GoogleSignInActivity : ComponentActivity() {
     private val signInDeferred = CompletableDeferred<GoogleSignInAccount?>()
     private val signInOptions: GoogleSignInOptions =
         GoogleSignInOptions.Builder(GoogleSignInOptions.DEFAULT_GAMES_SIGN_IN) // Add the APPFOLDER scope for Snapshot support.
-            .requestScopes(Scope(Scopes.DRIVE_APPFOLDER))
+            .requestScopes(
+                Scope(Scopes.DRIVE_APPFOLDER),
+                Games.SCOPE_GAMES_LITE,
+                Games.SCOPE_GAMES_SNAPSHOTS
+            )
             .requestProfile()
             .build()
 
